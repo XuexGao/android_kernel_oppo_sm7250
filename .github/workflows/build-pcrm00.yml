@@ -1,0 +1,94 @@
+name: build-pcrm00-resukisu
+
+on:
+  workflow_dispatch:
+    inputs:
+      clang_version:
+        description: 'LLVM/clang major version to build with'
+        required: false
+        default: '14'
+        type: choice
+        options: ['12', '13', '14', '15']
+      defconfig:
+        description: 'base defconfig'
+        required: false
+        default: 'vendor/lito-perf_defconfig'
+  push:
+    branches: [pcrm00-resukisu]
+    paths-ignore: ['**.md']
+
+permissions:
+  contents: read
+
+env:
+  DEFCONFIG: ${{ inputs.defconfig || 'vendor/lito-perf_defconfig' }}
+
+jobs:
+  kernel:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          set -euo pipefail
+          CLANG="${{ inputs.clang_version || '14' }}"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential flex bison bc libssl-dev device-tree-compiler \
+            cpio rsync xz-utils python3 curl ca-certificates \
+            binutils-aarch64-linux-gnu \
+            clang-$CLANG lld-$CLANG llvm-$CLANG
+          echo "/usr/lib/llvm-$CLANG/bin" >> "$GITHUB_PATH"
+          echo "CLANG=$CLANG" >> "$GITHUB_ENV"
+
+      - name: Fetch stock PCRM00 devicetree (companion repo)
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --single-branch \
+            https://github.com/oppo-source/android_kernel_modules_and_devicetree_oppo_sm7250.git \
+            "$RUNNER_TEMP/modt"
+          mkdir -p vendor/qcom/proprietary
+          ln -sfn "$RUNNER_TEMP/modt/vendor/qcom/proprietary/devicetree-4.19" \
+                  vendor/qcom/proprietary/devicetree-4.19
+          echo "devicetree boards: $(find -L vendor/qcom/proprietary/devicetree-4.19 -name '*.dts' | wc -l)"
+
+      - name: Stub out OPPO's unreleased vendor subtrees
+        run: |
+          chmod +x pcrm00/*.sh
+          ./pcrm00/prepare_stubs.sh
+          echo "--- stub summary ---"
+          grep -c '^STUB-D' build/stubs.log || true
+          grep -c '^STUB-F' build/stubs.log || true
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          # TARGET_PRODUCT=qssi flips drivers/Makefile + drivers/scsi/Makefile
+          # off OPPO's unreleased oufs/ommc and onto the stock QC UFS/MMC drivers.
+          export TARGET_PRODUCT=qssi
+          export CC=clang LD=ld.lld
+          export KCFLAGS="-Wno-error"
+          ./pcrm00/build.sh 2>&1 | tee "$RUNNER_TEMP/build-full.log"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcrm00-resukisu-${{ github.sha }}
+          path: |
+            out/pcrm00/Image-dtb
+            out/pcrm00/.config
+            out/arch/arm64/boot/Image
+            out/build.log
+            build/stubs.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Failure triage summary
+        if: failure()
+        run: |
+          echo '### Build failed — last errors' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          grep -E "error:|Error [0-9]|No rule to make target|not found" \
+              "$RUNNER_TEMP/build-full.log" 2>/dev/null | tail -40 >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
