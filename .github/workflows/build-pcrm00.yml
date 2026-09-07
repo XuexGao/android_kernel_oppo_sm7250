@@ -68,7 +68,9 @@ jobs:
           # off OPPO's unreleased oufs/ommc and onto the stock QC UFS/MMC drivers.
           export TARGET_PRODUCT=qssi
           export CC=clang LD=ld.lld
-          export KCFLAGS="-Wno-error"
+          # OPPO's vendor code is full of old-style `int foo()` definitions, which
+          # clang rejects under -Werror=strict-prototypes (GCC does not complain).
+          export KCFLAGS="-Wno-error -Wno-error=strict-prototypes -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types -Wno-error=date-time -Wno-declaration-after-statement"
           ./pcrm00/build.sh 2>&1 | tee "$RUNNER_TEMP/build-full.log"
 
       - name: Upload artifacts

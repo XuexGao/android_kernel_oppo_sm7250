@@ -103,3 +103,17 @@ done < <(find . -name Makefile -type f 2>/dev/null | while read -r mf; do
 echo
 echo "[+] stubs: $n_dir dirs, $n_file files; devicetree linked: $n_dt"
 echo "[+] log:   $OUTLOG"
+
+# ---------------------------------------------------------------------------
+# Pass 3: hook in the Kconfig shim that re-declares symbols OPPO deleted while
+# leaving the corresponding driver sources in the tree (see the file's header).
+# ---------------------------------------------------------------------------
+SHIM='pcrm00/kconfig/shim/Kconfig'
+if [ -f "$ROOT/$SHIM" ]; then
+    if ! grep -q "$SHIM" "$ROOT/drivers/Kconfig"; then
+        sed -i "/^endmenu\$/i source \"$SHIM\"" "$ROOT/drivers/Kconfig"
+        echo "[+] sourced $SHIM from drivers/Kconfig"
+    else
+        echo "[=] $SHIM already sourced"
+    fi
+fi

@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Kconfig shim for symbols that OPPO deleted along with the
+# vendor/oplus/kernel/... directories, but whose driver SOURCE is still in the
+# tree. Without these, `make olddefconfig` silently drops the config, the
+# Makefile's obj-$(CONFIG_...) expands to nothing, and a perfectly good driver
+# directory compiles to an empty built-in.
+#
+# Deliberately narrow: only symbols whose .c files exist here are defined.
+# OPPO's own touch wrapper (drivers/input/touchscreen/oplus_touchscreen/, the
+# whole TOUCHPANEL_* family) is NOT recoverable - that source was never
+# published - so it is intentionally absent below.
+#
+
+menu "PCRM00 build shim (symbols lost with OPPO's unreleased vendor tree)"
+
+comment "Synaptics TCM: drivers/input/touchscreen/synaptics_tcm/ is present,"
+comment "but its Kconfig lived in the deleted oplus_touchscreen/Kconfig."
+comment "Reno3 Pro's DT declares compatible = \"synaptics,tcm-i2c\"."
+
+config TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	bool "Synaptics TCM core"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_DEVICE
+	bool "Synaptics TCM device"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_TOUCH
+	bool "Synaptics TCM touch"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_DEVICE
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_I2C
+	bool "Synaptics TCM I2C transport"
+	depends on I2C && TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_SPI
+	bool "Synaptics TCM SPI transport"
+	depends on SPI && TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_TESTING
+	bool "Synaptics TCM testing"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_REFASH_FIX
+	bool
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_REFLASH
+	bool "Synaptics TCM reflash"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_DEVICE
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_RECOVERY
+	bool "Synaptics TCM recovery"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_DEVICE
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_ZEROFLASH
+	bool "Synaptics TCM zeroflash"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_REFLASH
+	default n
+
+config TOUCHSCREEN_SYNAPTICS_TCM_DIAGNOSTICS
+	bool "Synaptics TCM diagnostics"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_DEVICE
+	default n
+
+endmenu

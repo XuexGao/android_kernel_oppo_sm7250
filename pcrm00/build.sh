@@ -36,8 +36,22 @@ echo "=============================================================="
 "$CC_BIN --version" | head -2
 echo
 
-echo "[1/5] base defconfig: $DEFCONFIG"
-"${MK[@]}" $DEFCONFIG
+echo "[1/5] base config"
+# Prefer the config extracted from the phone's own stock kernel over the
+# shipped defconfig: pcrm00/stock_config came out of `scripts/extract-ikconfig`
+# on the real PCRM00 Image, so it is 6167 lines of what the device actually
+# runs, versus 1040 lines of a Reno4 Pro vendor defconfig. Set USE_STOCK_CONFIG=0
+# to fall back to $DEFCONFIG.
+STOCKCFG="$ROOT/pcrm00/stock_config"
+if [ "${USE_STOCK_CONFIG:-1}" = "1" ] && [ -f "$STOCKCFG" ]; then
+    echo "      using stock config extracted from the device ($(grep -c '' "$STOCKCFG") lines)"
+    mkdir -p "$OUT"
+    cp "$STOCKCFG" "$OUT/.config"
+    "${MK[@]}" olddefconfig
+else
+    echo "      using $DEFCONFIG"
+    "${MK[@]}" $DEFCONFIG
+fi
 
 echo "[2/5] ReSukisu config fragment"
 "$ROOT/pcrm00/apply_ksu_config.sh" "$OUT/.config"

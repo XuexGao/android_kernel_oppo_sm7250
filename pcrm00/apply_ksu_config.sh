@@ -35,10 +35,44 @@ SCONFIG="$ROOT/scripts/config"
     \
     -e KALLSYMS \
     -e KALLSYMS_ALL \
-    -e KPROBES \
-    -e FTRACE \
-    -e PROC_FS \
-    \
-    -d MODULE_SIG_FORCE
+    -e PROC_FS
+
+# --- kprobes -------------------------------------------------------------
+# KSU_MANUAL_HOOK_AUTO_INPUT_HOOK registers an input kprobe, and
+# runtime/ksud_integration.c calls register_kprobe() directly.
+# The STOCK PCRM00 config ships "# CONFIG_KPROBES is not set", so this has to be
+# turned on explicitly or the hook silently cannot install.
+"$SCONFIG" --file "$CFG" -e KPROBES -e HAVE_KPROBES -e FTRACE
+
+# --- drop the other SoC the released devicetree cannot support ------------
+# Stock enables ARCH_LAGOON, but the published devicetree repo carries no lagoon
+# board sources for this product. Keeping it on only risks a dtb build error.
+"$SCONFIG" --file "$CFG" -d ARCH_LAGOON
+
+# --- module signing -------------------------------------------------------
+# Stock embeds OPPO's signing key. A rebuilt kernel generates a fresh one and
+# would then reject every stock .ko. Only 5 modules exist (MSM_RDBG, DVB_MPQ,
+# DVB_MPQ_DEMUX, LCD_CLASS_DEVICE, QCOM_LLCC_PERFMON) and none are functional,
+# so relaxing the check is safe and cheap.
+"$SCONFIG" --file "$CFG" -d MODULE_SIG_FORCE
+
+# --- recover the Synaptics TCM touch driver -------------------------------
+# OPPO deleted the Kconfig that gated drivers/input/touchscreen/synaptics_tcm/
+# while leaving all 10 .c files in place. pcrm00/kconfig/shim/Kconfig re-declares
+# those symbols so the driver can actually be built. Reno3 Pro's DT declares
+# compatible = "synaptics,tcm-i2c", which this driver matches.
+# Set ENABLE_TCM_SHIM=0 to skip (then there is simply no touchscreen).
+if [ "${ENABLE_TCM_SHIM:-1}" = "1" ]; then
+    "$SCONFIG" --file "$CFG" \
+        -e TOUCHSCREEN_SYNAPTICS_TCM \
+        -e TOUCHSCREEN_SYNAPTICS_TCM_CORE \
+        -e TOUCHSCREEN_SYNAPTICS_TCM_DEVICE \
+        -e TOUCHSCREEN_SYNAPTICS_TCM_TOUCH \
+        -e TOUCHSCREEN_SYNAPTICS_TCM_I2C \
+        -e TOUCHSCREEN_SYNAPTICS_TCM_REFLASH \
+        -e TOUCHSCREEN_SYNAPTICS_TCM_RECOVERY \
+        -e TOUCHSCREEN_SYNAPTICS_TCM_DIAGNOSTICS
+    echo "[+] Synaptics TCM shim enabled (OPPO's TOUCHPANEL_* wrapper is still lost)"
+fi
 
 echo "[+] ReSukisu config fragment applied to $CFG"
