@@ -1,0 +1,3 @@
+
+# CI definition lives here until the gh token gains the `workflow` scope;
+# move to .github/workflows/ with:  mkdir -p .github/workflows && git mv pcrm00/ci/build-pcrm00.yml .github/workflows/
