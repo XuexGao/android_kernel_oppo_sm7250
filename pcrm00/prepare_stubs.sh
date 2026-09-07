@@ -55,6 +55,51 @@ while IFS= read -r link; do
     n_dir=$((n_dir+1))
 done < <(find . -type l | while read -r l; do [ -e "$l" ] || echo "${l#./}"; done)
 
+# ---------------------------------------------------------------------------
+# Pass 2: paths that are not symlinks at all - simply never shipped.
+# Some (e.g. net/oplus_modules) are even listed in the tree's .gitignore, so
+# they are absent rather than dangling. Kconfig aborts on `source "<missing>"`,
+# so those have to be stubbed too or the build never reaches compilation.
+# ---------------------------------------------------------------------------
+
+stub_dir() { # $1 = path relative to repo root, $2 = tag, $3 = referencer
+    [ -n "$1" ] || return 0
+    case "$1" in */|.|..) return 0 ;; esac
+    # Kconfig `source` accepts make-style variables; those lines are expanded by
+    # the real Kconfig preprocessor. Never create a literal '$(...)' directory.
+    case "$1" in *'$'*) return 0 ;; esac
+    [ -e "$1" ] || [ -L "$1" ] && return 0
+    mkdir -p "$1" 2>/dev/null || return 0
+    printf '# stubbed: upstream source not released by OPPO\n' > "$1/Kconfig"
+    printf '# stubbed: upstream source not released by OPPO\nobj-y :=\n' > "$1/Makefile"
+    echo "$2  $1  (referenced by $3)" | tee -a "$OUTLOG"
+    n_dir=$((n_dir+1))
+}
+
+# 2a. every `source "x/Kconfig"` / `osource "x/Kconfig"` in the tree
+while IFS=$'\t' read -r kfile src; do
+    [ -n "$src" ] || continue
+    case "$src" in *Kconfig) d="${src%/Kconfig}" ;; *) continue ;; esac
+    [ -n "$d" ] || continue
+    stub_dir "$d" "STUB-K" "$kfile"
+done < <(find . -name Kconfig -type f 2>/dev/null | while read -r kf; do
+             grep -hoE '(osource|source)[[:space:]]+"[^"]+"' "$kf" 2>/dev/null \
+               | sed -E 's/^(osource|source)[[:space:]]+"//; s/"$//' \
+               | while read -r s; do printf '%s\t%s\n' "$kf" "$s"; done
+         done)
+
+# 2b. unconditional `obj-y += some/dir/` - Kbuild always descends into these.
+while IFS=$'\t' read -r mk dir; do
+    [ -n "$dir" ] || continue
+    base="$(dirname "$mk")"
+    [ "$base" = "." ] && rel="$dir" || rel="$base/$dir"
+    stub_dir "$rel" "STUB-M" "$mk"
+done < <(find . -name Makefile -type f 2>/dev/null | while read -r mf; do
+             grep -hoE '^obj-y[[:space:]]*\+[[:space:]]*=[[:space:]]*[A-Za-z0-9_./-]+/' "$mf" 2>/dev/null \
+               | sed -E 's#.*=[[:space:]]*##' \
+               | while read -r d; do printf '%s\t%s\n' "$mf" "$d"; done
+         done)
+
 echo
 echo "[+] stubs: $n_dir dirs, $n_file files; devicetree linked: $n_dt"
 echo "[+] log:   $OUTLOG"
