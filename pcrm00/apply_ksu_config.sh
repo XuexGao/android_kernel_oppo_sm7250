@@ -56,12 +56,34 @@ SCONFIG="$ROOT/scripts/config"
 # so relaxing the check is safe and cheap.
 "$SCONFIG" --file "$CFG" -d MODULE_SIG_FORCE
 
+# --- module versioning ----------------------------------------------------
+# genksyms fails to fingerprint gsi_write_channel_scratch() (its by-value
+# "union __packed" parameter trips the version generator), which makes lld emit
+# "R_AARCH64_ABS32 cannot be used against __crc_gsi_write_channel_scratch".
+# MODVERSIONS buys nothing for a fully built-in kernel (5 non-functional .ko),
+# and dropping it removes the __kcrctab CRCs that cause the link error.
+"$SCONFIG" --file "$CFG" -d MODVERSIONS
+
 # --- drop drivers that reference the never-released QC camera-CCI tree ----
 # The STM VL53L1 ToF sensor module includes "cam_cci_ctrl_interface.h" and calls
 # cam_cci_control_interface(); neither this header nor the backing driver ships
 # in the GPL release (the QC camera CCI lives in a vendor tree). It cannot be
 # built self-contained, so take it out rather than fabricate a camera ABI.
 "$SCONFIG" --file "$CFG" -d STMVL53L1
+
+# --- drop the FSA4480 type-C/USB switch -------------------------------
+# drivers/soc/qcom/fsa4480-i2c.c includes "dsi/dsi_display.h" and calls
+# get_main_display()/dsi_parser_utils from the QC display/DSI tree, which is not
+# shipped in the GPL release. The audio/USB switch cannot be built standalone,
+# so disable the module instead of fabricating a display ABI.
+"$SCONFIG" --file "$CFG" -d QCOM_FSA4480_I2C
+
+# --- drop the OPPO ION boost-pool -------------------------------------
+# drivers/staging/android/ion gates an OPPO boost-pool feature on
+# CONFIG_OPLUS_ION_BOOSTPOOL and calls kcrit_scene_init()/boost_pool_create()
+# which live in the unreleased vendor/oplus tree. Disable it so the stock ION
+# heap builds without a fabricated boost-pool ABI.
+"$SCONFIG" --file "$CFG" -d OPLUS_ION_BOOSTPOOL
 
 # --- recover the Synaptics TCM touch driver -------------------------------
 # OPPO deleted the Kconfig that gated drivers/input/touchscreen/synaptics_tcm/

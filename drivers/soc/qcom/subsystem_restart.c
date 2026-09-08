@@ -37,6 +37,7 @@
 #include <linux/proc_fs.h>
 
 #include "peripheral-loader.h"
+#include <soc/oplus/system/oplus_project.h>
 #ifdef OPLUS_BUG_STABILITY
 /*Add for disable dump for subsys crash*/
 #include <soc/oplus/system/oplus_project.h>

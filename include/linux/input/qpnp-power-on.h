@@ -54,6 +54,7 @@ enum pon_restart_reason {
 	PON_RESTART_REASON_DMVERITY_CORRUPTED	= 0x04,
 	PON_RESTART_REASON_DMVERITY_ENFORCE	= 0x05,
 	PON_RESTART_REASON_KEYS_CLEAR		= 0x06,
+	PON_RESTART_REASON_NORMAL		= 0x3E,
 #ifdef OPLUS_BUG_STABILITY
 /* Add for oplus boot mode*/
 	PON_RESTART_REASON_SILENCE			= 0x21,
@@ -74,7 +75,6 @@ enum pon_restart_reason {
 	//0x2E is SBLTEST FAIL, just happen in ddrtest fail when xbl setup
 	#endif
 	PON_RESTART_REASON_REBOOT_NO_VIBRATION		= 0x2F,
-	PON_RESTART_REASON_NORMAL			= 0x3E,
 #endif
 };
 

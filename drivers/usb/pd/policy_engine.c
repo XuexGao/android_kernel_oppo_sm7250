@@ -506,9 +506,7 @@ struct usbpd {
 	u32			battery_sts_dobj;
 	bool			typec_analog_audio_connected;
 };
-#ifdef OPLUS_FEATURE_CHG_BASIC
 struct usbpd *pd_lobal;
-#endif
 
 static LIST_HEAD(_usbpd);	/* useful for debugging */
 

@@ -15,9 +15,32 @@
 #include <linux/sched_assist/sched_assist_rwsem.h>
 #include <linux/sched_assist/sched_assist_binder.h>
 #include <soc/oplus/system/oppo_process.h>
+#include <soc/oplus/system/kernel_fb.h>
+#include <soc/oplus/system/oplus_project.h>
+
+#include <linux/hans.h>
+#include <linux/threads.h>
+#include <linux/fs.h>
+#include <linux/sysctl.h>
 
 struct mutex;
 struct rw_semaphore;
+struct subsys_device;
+struct cpumask;
+
+int get_eng_version(void)
+{
+	/* No CDT/eng info in this diagnostic build; not a PREVERSION build. */
+	return 0;
+}
+EXPORT_SYMBOL(get_eng_version);
+
+int op_restart_modem(struct subsys_device *subsys)
+{
+	/* OPPO BUG_STABILITY build-gated hook; no-op for the diagnostic tree. */
+	return 0;
+}
+EXPORT_SYMBOL(op_restart_modem);
 
 void binder_set_inherit_ux(struct task_struct *from, struct task_struct *to)
 {
@@ -28,6 +51,25 @@ void binder_unset_inherit_ux(struct task_struct *task)
 {
 }
 EXPORT_SYMBOL(binder_unset_inherit_ux);
+
+int get_PCB_Version(void)
+{
+	/* No CDT/board info in this diagnostic build; report EVB stage. */
+	return 0;
+}
+EXPORT_SYMBOL(get_PCB_Version);
+
+unsigned int get_project(void)
+{
+	return 0;
+}
+EXPORT_SYMBOL(get_project);
+
+void oplus_kevent_fb_str(unsigned int module, unsigned int event,
+			 const char *str)
+{
+}
+EXPORT_SYMBOL(oplus_kevent_fb_str);
 
 bool is_critial_process(struct task_struct *task)
 {
@@ -180,3 +222,107 @@ void rwsem_unset_inherit_ux(struct rw_semaphore *sem, struct task_struct *task)
 {
 }
 EXPORT_SYMBOL(rwsem_unset_inherit_ux);
+
+/* --- rwsem/scheduler-assist chain (SCHED_ASSIST) ---------------------- */
+void uxchain_rwsem_down(struct rw_semaphore *sem)
+{
+}
+EXPORT_SYMBOL(uxchain_rwsem_down);
+
+void uxchain_rwsem_up(struct rw_semaphore *sem)
+{
+}
+EXPORT_SYMBOL(uxchain_rwsem_up);
+
+void uxchain_rwsem_wake(struct task_struct *tsk, struct rw_semaphore *sem)
+{
+}
+EXPORT_SYMBOL(uxchain_rwsem_wake);
+
+void update_ux_sched_cputopo(void)
+{
+}
+EXPORT_SYMBOL(update_ux_sched_cputopo);
+
+void drop_ux_task_cpus(struct task_struct *p, struct cpumask *lowest_mask)
+{
+}
+EXPORT_SYMBOL(drop_ux_task_cpus);
+
+void kick_min_cpu_from_mask(struct cpumask *lowest_mask)
+{
+}
+EXPORT_SYMBOL(kick_min_cpu_from_mask);
+
+bool sf_task_misfit(struct task_struct *p)
+{
+	return false;
+}
+EXPORT_SYMBOL(sf_task_misfit);
+
+void sched_assist_target_comm(struct task_struct *task)
+{
+}
+EXPORT_SYMBOL(sched_assist_target_comm);
+
+/* --- VFS hooks (exec/mount block) ------------------------------------- */
+int oplus_exec_block(struct file *file)
+{
+	return 0;
+}
+EXPORT_SYMBOL(oplus_exec_block);
+
+int oplus_mount_block(const char __user *dir_name, unsigned long flags)
+{
+	return 0;
+}
+EXPORT_SYMBOL(oplus_mount_block);
+
+/* --- proc /pecial-entry -------------------------------------------------- */
+bool is_special_entry(struct dentry *dentry, const char *special_proc)
+{
+	return false;
+}
+EXPORT_SYMBOL(is_special_entry);
+
+const struct file_operations proc_ux_state_operations = {
+	.owner	= THIS_MODULE,
+};
+
+/* --- watchdog / multi-kswapd / misc data ------------------------------ */
+int cpu_idle_pc_state[NR_CPUS];
+EXPORT_SYMBOL(cpu_idle_pc_state);
+
+int kswapd_threads = 1;
+EXPORT_SYMBOL(kswapd_threads);
+
+void oplus_wpc_set_wrx_en_value(int value)
+{
+}
+EXPORT_SYMBOL(oplus_wpc_set_wrx_en_value);
+
+void hans_check_frozen_transcation(uid_t uid, enum message_type type)
+{
+}
+EXPORT_SYMBOL(hans_check_frozen_transcation);
+
+/* --- WALT / panic-dump / sched sysctl -------------------------------- */
+void sf_task_util_record(struct task_struct *p)
+{
+}
+EXPORT_SYMBOL(sf_task_util_record);
+
+bool is_fulldump_enable(void)
+{
+	/* No full-dump machinery in this vendor tree; flush device cache on panic. */
+	return false;
+}
+EXPORT_SYMBOL(is_fulldump_enable);
+
+int sysctl_sched_assist_scene_handler(struct ctl_table *table, int write,
+				      void __user *buffer, size_t *lenp,
+				      loff_t *ppos)
+{
+	return proc_dointvec(table, write, buffer, lenp, ppos);
+}
+EXPORT_SYMBOL(sysctl_sched_assist_scene_handler);

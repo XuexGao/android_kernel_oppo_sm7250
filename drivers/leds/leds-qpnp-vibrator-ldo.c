@@ -32,9 +32,7 @@
  * Define vibration periods: default(5sec), min(50ms), max(15sec) and
  * overdrive(30ms).
  */
-#ifdef OPLUS_FEATURE_CHG_BASIC
 #define QPNP_VIB_MIN_PLAY_MS		35
-#endif
 #define QPNP_VIB_PLAY_MS		5000
 #define QPNP_VIB_MAX_PLAY_MS		15000
 #define QPNP_VIB_OVERDRIVE_PLAY_MS	30

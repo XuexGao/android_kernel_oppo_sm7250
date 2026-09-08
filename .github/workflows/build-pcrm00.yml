@@ -10,7 +10,7 @@ on:
         type: choice
         options: ['12', '13', '14', '15']
       defconfig:
-        description: 'base defconfig'
+        description: 'base defconfig (fallback only; pcrm00/build.sh prefers pcrm00/stock_config extracted from the real PCRM00 kernel)'
         required: false
         default: 'vendor/lito-perf_defconfig'
   push:

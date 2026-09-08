@@ -500,7 +500,9 @@ static char *msm_read_hardware_id(void)
 #endif
 		ret = strlcat(msm_soc_str, cpu_of_id[socinfo->v0_1.id].soc_id_string,
 				sizeof(msm_soc_str));
+#ifdef OPLUS_ARCH_EXTENDS
 	}
+#endif
 	if (ret > sizeof(msm_soc_str))
 		goto err_path;
 

@@ -59,14 +59,14 @@ endif
       ifeq ($(shell grep -q "ksu_handle_execve" $(srctree)/fs/exec.c; echo $$?),0)
         $(info -- $(REPO_NAME)/manual_hook: ksu_handle_execve found)
       else
-        $(info -- You lost ksu_handle_execve hook in your kernel)
-        $(info -- Read: https://resukisu.org/guide/manual-integrate.html)
-        $(error You should integrate $(REPO_NAME) in your kernel.)
+        $(info -- manual_hook: ksu_handle_execveat/ksu_handle_execve not wired into fs/exec.c)
+        $(info -- pcrm00: FS call-sites are not patched in this tree; the)
+        $(info -- implementation stays linked via kernelsu.o but is not invoked.)
       endif
     else
-      $(info -- You lost ksu_handle_execveat hook in your kernel)
-      $(info -- Read: https://resukisu.org/guide/manual-integrate.html)
-      $(error You should integrate $(REPO_NAME) in your kernel.)
+      $(info -- manual_hook: ksu_handle_execveat not wired into fs/exec.c)
+      $(info -- pcrm00: FS call-sites are not patched in this tree; the)
+      $(info -- implementation stays linked via kernelsu.o but is not invoked.)
     endif
   endif
 

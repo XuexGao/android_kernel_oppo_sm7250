@@ -118,11 +118,7 @@ static void el0_svc_common(struct pt_regs *regs, int scno, int sc_nr,
 		if (scno == NO_SYSCALL)
 			goto trace_exit;
 	}
-#ifdef CONFIG_OPLUS_SECURE_GUARD
-	oplus_invoke_syscall(regs, scno, sc_nr, syscall_table);
-#else 
-	invoke_syscall(regs, scno, sc_nr, syscall_table);
-#endif /* CONFIG_OPLUS_SECURE_GUARD */
+invoke_syscall(regs, scno, sc_nr, syscall_table);
 	/*
 	 * The tracing status may have changed under our feet, so we have to
 	 * check again. However, if we were tracing entry, then we always trace
