@@ -56,6 +56,13 @@ SCONFIG="$ROOT/scripts/config"
 # so relaxing the check is safe and cheap.
 "$SCONFIG" --file "$CFG" -d MODULE_SIG_FORCE
 
+# --- drop drivers that reference the never-released QC camera-CCI tree ----
+# The STM VL53L1 ToF sensor module includes "cam_cci_ctrl_interface.h" and calls
+# cam_cci_control_interface(); neither this header nor the backing driver ships
+# in the GPL release (the QC camera CCI lives in a vendor tree). It cannot be
+# built self-contained, so take it out rather than fabricate a camera ABI.
+"$SCONFIG" --file "$CFG" -d STMVL53L1
+
 # --- recover the Synaptics TCM touch driver -------------------------------
 # OPPO deleted the Kconfig that gated drivers/input/touchscreen/synaptics_tcm/
 # while leaving all 10 .c files in place. pcrm00/kconfig/shim/Kconfig re-declares

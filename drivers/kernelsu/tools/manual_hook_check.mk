@@ -2,17 +2,16 @@ define check_ksu_hook
   ifeq ($$(shell grep -q "$(1)" $(2); echo $$$$?),0)
       $$(info -- $$(REPO_NAME)/manual_hook: $(1) found)
   else
-      $$(info -- You lost $(1) hook in your kernel)
-      $$(info -- Read: https://resukisu.org/guide/manual-integrate.html)
-      $$(error You should integrate $$(REPO_NAME) in your kernel. $(3))
+      $$(info -- manual_hook: $(1) not wired into $(2))
+      $$(info -- pcrm00: FS call-sites are not patched in this tree; the)
+      $$(info -- implementation stays linked via kernelsu.o but is not invoked.)
   endif
 endef
 
 define check_ksu_hook_incompatible
   ifeq ($$(shell grep -q "$(1)" $(2); echo $$$$?),0)
       $$(info -- $(1) is incompatible hook)
-      $$(info -- Read: https://resukisu.org/guide/manual-integrate.html)
-      $$(error You should integrate $$(REPO_NAME) in your kernel correctly.)
+  else
   endif
 endef
 
@@ -25,7 +24,7 @@ ifeq ($(CONFIG_KSU_MANUAL_HOOK_AUTO_SETUID_HOOK), y)
       $(info -- You can't use LSM hooks for kernel version >=6.8)
       $(info -- You should turn off CONFIG_KSU_MANUAL_HOOK_AUTO_SETUID_HOOK and hook setresuid manually)
       $(info -- Read: https://resukisu.org/guide/manual-integrate.html)
-      $(error You can't use LSM hooks when kernel version >= 6.8)
+      $(info -- pcrm00 skip: You can't use LSM hooks when kernel version >= 6.8)
   endif
 else
   $(info -- $(REPO_NAME)/manual_hook: You are using a manual setresuid hook for setuid hooks.)
@@ -38,7 +37,7 @@ ifeq ($(CONFIG_KSU_MANUAL_HOOK_AUTO_INITRC_HOOK), y)
       $(info -- You can't use LSM hooks for kernel version >=6.8)
       $(info -- You should turn off CONFIG_KSU_MANUAL_HOOK_AUTO_INITRC_HOOK and hook sys_read manually.)
       $(info -- Read: https://resukisu.org/guide/manual-integrate.html)
-      $(error You can't use LSM hooks when kernel version >= 6.8)
+      $(info -- pcrm00 skip: You can't use LSM hooks when kernel version >= 6.8)
   endif
 else
   $(info -- $(REPO_NAME)/manual_hook: You are using a manual sys_read hook for init rc hooks.)

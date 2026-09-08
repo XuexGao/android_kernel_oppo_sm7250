@@ -13,10 +13,21 @@
 #include <linux/sched_assist/sched_assist_common.h>
 #include <linux/sched_assist/sched_assist_mutex.h>
 #include <linux/sched_assist/sched_assist_rwsem.h>
+#include <linux/sched_assist/sched_assist_binder.h>
 #include <soc/oplus/system/oppo_process.h>
 
 struct mutex;
 struct rw_semaphore;
+
+void binder_set_inherit_ux(struct task_struct *from, struct task_struct *to)
+{
+}
+EXPORT_SYMBOL(binder_set_inherit_ux);
+
+void binder_unset_inherit_ux(struct task_struct *task)
+{
+}
+EXPORT_SYMBOL(binder_unset_inherit_ux);
 
 bool is_critial_process(struct task_struct *task)
 {
