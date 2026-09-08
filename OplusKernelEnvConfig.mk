@@ -133,13 +133,27 @@ ifeq ($(OPLUS_FEATURE_GAMMA_SWITCH_KERNEL), yes)
 endif
 
 
-$(foreach myfeature,$(ALLOWED_MCROS),\
-         $(warning make $(myfeature) to be a macro here) \
-         $(eval KBUILD_CFLAGS += -D$(myfeature)) \
-         $(eval KBUILD_CPPFLAGS += -D$(myfeature)) \
-         $(eval CFLAGS_KERNEL += -D$(myfeature)) \
-         $(eval CFLAGS_MODULE += -D$(myfeature)) \
-)
+# pcrm00 adaptation: the vendored source trees backing these OPLUS_FEATURE_*
+# macros (vendor/oplus/kernel/..., vendor/qcom/proprietary/...) are NOT part of
+# this GPL release. OPPO's in-tree code that USES a feature macro is often not
+# wrapped in the matching #ifdef (it relies on the macro being force-defined),
+# so blanket-disabling them produces "undeclared identifier" cascades. We keep
+# OFF the macros whose feature code is fully stubbed, and re-enable the few that
+# in-tree code depends on unconditionally, backfilling the implementation as
+# no-ops in kernel/oplus_pcrm00_shim.c.
+#$(foreach myfeature,$(ALLOWED_MCROS),\
+#         $(warning make $(myfeature) to be a macro here) \
+#         $(eval KBUILD_CFLAGS += -D$(myfeature)) \
+#         $(eval KBUILD_CPPFLAGS += -D$(myfeature)) \
+#         $(eval CFLAGS_KERNEL += -D$(myfeature)) \
+#         $(eval CFLAGS_MODULE += -D$(myfeature)) \
+#)
+# kernel/sched, kernel/locking, kernel/sysctl, block/ and mm/ declare SCHED_ASSIST
+# helpers under this macro but CALL them unconditionally.
+KBUILD_CFLAGS   += -DOPLUS_FEATURE_SCHED_ASSIST
+KBUILD_CPPFLAGS += -DOPLUS_FEATURE_SCHED_ASSIST
+CFLAGS_KERNEL   += -DOPLUS_FEATURE_SCHED_ASSIST
+CFLAGS_MODULE   += -DOPLUS_FEATURE_SCHED_ASSIST
 
 # BSP team can do customzation by referring the feature variables
 
@@ -186,13 +200,15 @@ $(warning "ln the wakelock_profiler_h fail, mkis $(inner_mk_dir), dir is $(inner
 endif
 #endif /* OPLUS_FEATURE_POWERINFO_STANDBY */
 
-ifeq ($(OPLUS_FEATURE_AOD_RAMLESS),yes)
-KBUILD_CFLAGS += -DOPLUS_FEATURE_AOD_RAMLESS
-KBUILD_CPPFLAGS += -DOPLUS_FEATURE_AOD_RAMLESS
-CFLAGS_KERNEL += -DOPLUS_FEATURE_AOD_RAMLESS
-CFLAGS_MODULE += -DOPLUS_FEATURE_AOD_RAMLESS
-endif
+# pcrm00 adaptation: the AOD/audio-IP sources behind these macros are part of
+# the same non-released vendor trees; leave them unset (see note above).
+#ifeq ($(OPLUS_FEATURE_AOD_RAMLESS),yes)
+#KBUILD_CFLAGS += -DOPLUS_FEATURE_AOD_RAMLESS
+#KBUILD_CPPFLAGS += -DOPLUS_FEATURE_AOD_RAMLESS
+#CFLAGS_KERNEL += -DOPLUS_FEATURE_AOD_RAMLESS
+#CFLAGS_MODULE += -DOPLUS_FEATURE_AOD_RAMLESS
+#endif
 
-ifeq ($(OPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL),yes)
-KBUILD_CFLAGS += -DOPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL
-endif
+#ifeq ($(OPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL),yes)
+#KBUILD_CFLAGS += -DOPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL
+#endif

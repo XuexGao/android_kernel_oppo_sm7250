@@ -1174,7 +1174,9 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->nr_rtg_high_prio_tasks)
 );
 
-#ifdef OPLUS_FEATURE_SCHED_ASSIST
+/* pcrm00: these two SCHED_ASSIST traces are referenced unconditionally by
+ * kernel/sched/fair.c; make them always available instead of gating on the
+ * (vendored, non-released) OPLUS_FEATURE_SCHED_ASSIST macro. */
 TRACE_EVENT(sched_cpu_skip,
 
 	TP_PROTO(struct task_struct *p, bool sysctl_prefer_silver, bool is_ux_task, bool check_freq, bool check_task_util, bool check_cpu_util,
@@ -1254,8 +1256,6 @@ TRACE_EVENT(sched_cpu_sel,
 		__entry->boost_pol, __entry->task_util,
 		__entry->cpu_util, __entry->fit_small, __entry->is_ux_task, __entry->sysctl_prefer_silver, __entry->start_cpu)
 );
-
-#endif
 
 TRACE_EVENT(sched_compute_energy,
 

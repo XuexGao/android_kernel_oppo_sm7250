@@ -16,6 +16,9 @@ obj-y     = fork.o exec_domain.o panic.o \
 obj-y += panic_flush.o
 #endif
 
+# pcrm00: vendors OPPO's boot-mode getter in the unreleased tree; provide it here.
+obj-y += oplus_pcrm00_shim.o
+
 obj-$(CONFIG_MODULES) += kmod.o
 obj-$(CONFIG_MULTIUSER) += groups.o
 

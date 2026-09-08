@@ -71,6 +71,9 @@
 #ifdef OPLUS_BUG_STABILITY
 #include <soc/oplus/system/oppo_process.h>
 #endif
+/* pcrm00: is_critial_process() below is used unconditionally; keep the decl in
+ * scope regardless of the (disabled) OPLUS_BUG_STABILITY macro. */
+#include <soc/oplus/system/oppo_process.h>
 #if defined(OPLUS_FEATURE_VIRTUAL_RESERVE_MEMORY) && defined(CONFIG_VIRTUAL_RESERVE_MEMORY)
 //reserved area operations
 #include <linux/reserve_area.h>

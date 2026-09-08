@@ -33,7 +33,7 @@ echo " toolchain: CC=$CC_BIN LD=$LD_BIN CROSS_COMPILE=$CROSS_COMPILE"
 echo " jobs     : $J"
 echo "=============================================================="
 
-"$CC_BIN --version" | head -2
+"$CC_BIN" --version | head -2
 echo
 
 echo "[1/5] base config"

@@ -363,7 +363,7 @@ static int max_sched_tunable_scaling = SCHED_TUNABLESCALING_END-1;
 #endif /* CONFIG_SCHED_DEBUG */
 
 #ifdef OPLUS_FEATURE_SCHED_ASSIST
-int sysctl_sched_assist_enabled = 1;
+int sysctl_sched_assist_enabled = 0; /* pcrm00: keep 0 so upstream scheduling/mutex paths run */
 int sysctl_sched_assist_scene = 0;
 int sysctl_prefer_silver = 0;
 int sysctl_heavy_task_thresh = 50;

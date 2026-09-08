@@ -57,8 +57,8 @@
 #include "console_cmdline.h"
 #include "braille.h"
 #include "internal.h"
-#ifdef OPLUS_BUG_STABILITY
-/* Add for uart control via cmdline*/
+/* Add for uart control via cmdline (kept unconditional: call_console_drivers
+ * below uses printk_disable_uart / get_boot_mode regardless of OPLUS_BUG_STABILITY) */
 #include <soc/oplus/system/boot_mode.h>
 
 #include <linux/rtc.h>
@@ -79,7 +79,6 @@ bool oem_disable_uart(void)
 {
 	return printk_disable_uart;
 }
-#endif
 
 int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */

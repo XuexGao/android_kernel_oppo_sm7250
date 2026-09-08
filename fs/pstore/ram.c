@@ -779,10 +779,13 @@ static int ramoops_probe(struct platform_device *pdev)
 		goto fail_out;
 	}
 
-	if (!pdata->mem_size || (!pdata->record_size && !pdata->console_size &&
+	if (!pdata->mem_size ||
+	    (!pdata->record_size && !pdata->console_size &&
+	     !pdata->ftrace_size && !pdata->pmsg_size
 #ifdef OPLUS_FEATURE_DUMPDEVICE
-			!pdata->ftrace_size && !pdata->pmsg_size  && !pdata->device_info_size)) {
-#endif /* OPLUS_FEATURE_DUMPDEVICE */
+	     && !pdata->device_info_size
+#endif
+	    )) {
 		pr_err("The memory size and the record/console size must be "
 			"non-zero\n");
 		goto fail_out;
@@ -818,9 +821,12 @@ static int ramoops_probe(struct platform_device *pdev)
 	paddr = cxt->phys_addr;
 
 	dump_mem_sz = cxt->size - cxt->console_size - cxt->ftrace_size
+			- cxt->pmsg_size
+
 #ifdef OPLUS_FEATURE_DUMPDEVICE
-			- cxt->pmsg_size  - cxt->device_info_size;
-#endif /* OPLUS_FEATURE_DUMPDEVICE */
+			- cxt->device_info_size
+#endif
+			;
 	err = ramoops_init_przs("dump", dev, cxt, &cxt->dprzs, &paddr,
 				dump_mem_sz, cxt->record_size,
 				&cxt->max_dump_cnt, 0, 0);
