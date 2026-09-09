@@ -114,6 +114,12 @@ jobs:
           key: pcrm00-${{ github.ref_name }}
           max-size: 4G
 
+      - name: Cache stock boot.img
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/boot.img
+          key: stock-boot-pcrm00-${{ hashFiles('pcrm00/*.sh') }}-${{ hashFiles('pcrm00/dtb.img') }}
+
       - name: Fetch stock PCRM00 devicetree (companion repo)
         run: |
           set -euo pipefail
@@ -153,19 +159,28 @@ jobs:
       - name: Fetch magiskboot + stock boot.img
         run: |
           set -euo pipefail
-          # pan.xiegao.top returns intermittent 500/403; retry with backoff so a
-          # transient server error does not kill the whole build.
-          for i in 1 2 3 4 5; do
-            if curl -fSL --retry-all-errors --retry 3 --retry-delay 5 \
-                 -o "$RUNNER_TEMP/boot.img" "${{ env.STOCK_BOOT_URL }}"; then
-              break
-            fi
-            echo "[!] boot.img download attempt $i failed; retrying in $((i*10))s"
-            sleep "$((i * 10))"
-          done
-          # a <400-byte file is not a valid boot image
-          test -s "$RUNNER_TEMP/boot.img" && [ "$(stat -c%s "$RUNNER_TEMP/boot.img")" -gt 400 ] \
-            || { echo "::error::stock boot.img download failed after retries"; exit 1; }
+          # Reuse the GitHub-cached copy first (skips the slow ~9 min pan.xiegao
+          # download). Fall back to downloading when the cache is cold/missed.
+          if [ -f "${{ github.workspace }}/.cache/boot.img" ] \
+             && [ "$(stat -c%s "${{ github.workspace }}/.cache/boot.img")" -gt 400 ]; then
+            cp "${{ github.workspace }}/.cache/boot.img" "$RUNNER_TEMP/boot.img"
+            echo "[+] using cached stock boot.img"
+          else
+            # pan.xiegao.top returns intermittent 500/403 and is slow; retry with
+            # backoff so a transient server error does not kill the build.
+            for i in 1 2 3 4 5; do
+              if curl -fSL --retry-all-errors --retry 3 --retry-delay 5 \
+                   -o "$RUNNER_TEMP/boot.img" "${{ env.STOCK_BOOT_URL }}"; then
+                break
+              fi
+              echo "[!] boot.img download attempt $i failed; retrying in $((i*10))s"
+              sleep "$((i * 10))"
+            done
+            test -s "$RUNNER_TEMP/boot.img" && [ "$(stat -c%s "$RUNNER_TEMP/boot.img")" -gt 400 ] \
+              || { echo "::error::stock boot.img download failed after retries"; exit 1; }
+            mkdir -p "${{ github.workspace }}/.cache"
+            cp "$RUNNER_TEMP/boot.img" "${{ github.workspace }}/.cache/boot.img"
+          fi
           file "$RUNNER_TEMP/boot.img"
           python3 pcrm00/get_magiskboot.py "$RUNNER_TEMP"
           "$RUNNER_TEMP/magiskboot" >/dev/null 2>&1 && echo "magiskboot OK" || true

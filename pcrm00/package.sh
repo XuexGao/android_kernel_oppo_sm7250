@@ -34,6 +34,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 TAG="${REKUSISU_TAG:-v4.2.0-rc1}"
 DATE="$(date +'%Y%m%d')"
+# OUT_DIR / BOOT_OUT / ZIP_OUT must be ABSOLUTE: the boot-image repack runs inside a
+# `cd "$BOOTDIR"` (mktemp) subshell, so a relative out path would resolve against the
+# temp dir and magiskboot would fail to open it ("write failed with 9: Bad file
+# descriptor").
+mkdir -p "$OUT_DIR"
+OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 BOOT_OUT="$OUT_DIR/ReSukiSU_PCRM00_${TAG}_${DATE}-boot.img"
 ZIP_OUT="$OUT_DIR/ReSukiSU_PCRM00_${TAG}_${DATE}.zip"
 KERNEL_STRING="${REKUSISU_KSTRING:-ReSukiSU ${TAG} for OPPO Reno3 Pro 5G (PCRM00) @XuexGao}"
@@ -56,7 +62,6 @@ AK3="${ANYKERNEL3:-/tmp/AnyKernel3}"
 [ -f "$IMG" ]        || { echo "[!] no kernel Image: $IMG" >&2; exit 1; }
 [ -f "$DTB" ]        || { echo "[!] no dtb: $DTB" >&2; exit 1; }
 [ -f "$STOCK_BOOT" ] || { echo "[!] no stock boot: $STOCK_BOOT" >&2; exit 1; }
-mkdir -p "$OUT_DIR"
 
 echo "=============================================================="
 echo " Package ReSukiSU release"
