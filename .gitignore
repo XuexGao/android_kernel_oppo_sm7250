@@ -155,3 +155,4 @@ net/oplus_modules
 !pcrm00/dtb.img
 /out/
 /build/stubs.log
+!pcrm00/stock_boot.img.xz
