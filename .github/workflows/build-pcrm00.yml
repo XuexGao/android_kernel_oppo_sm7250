@@ -1,5 +1,13 @@
+# ==============================================================================
+# ReSukiSU Kernel CI — OPPO Reno3 Pro 5G (PCRM00, SM7250 / lito, kernel 4.19)
+# ------------------------------------------------------------------------------
+#   · 编译内核（ccache 加速，冷构建 ~25min，热构建 ~10min）
+#   · 产出两种刷机格式并一同发布到 GitHub Releases：
+#       - <tag>-boot.img    完整 boot 镜像（替换 stock 内核 + 保留 stock ramdisk/DTB）
+#       - <tag>.zip         AnyKernel3 recovery 刷入包
+#   · Release 正文附 ReSukiSU Manager 下载链接（官方 build-manager workflow）
+# ==============================================================================
 name: build-pcrm00-resukisu
-
 on:
   workflow_dispatch:
     inputs:
@@ -9,38 +17,102 @@ on:
         default: '14'
         type: choice
         options: ['12', '13', '14', '15']
-      defconfig:
-        description: 'base defconfig (fallback only; pcrm00/build.sh prefers pcrm00/stock_config extracted from the real PCRM00 kernel)'
+      stock_boot_url:
+        description: 'URL of the stock boot.img used to build the flashable boot image'
         required: false
-        default: 'vendor/lito-perf_defconfig'
+        default: 'https://pan.xiegao.top/api/ty/raw/?path=/%E5%A4%A9%E7%BF%BC%E4%BA%91%E7%9B%98/OPPO%20Reno3%20Pro/ROM/ColorOS/boot.img'
+      publish_release:
+        description: 'Publish to GitHub Releases (no = upload artifacts only)'
+        required: false
+        type: boolean
+        default: true
+      ak3_device_names:
+        description: 'ACL: ro.product.device values for the AnyKernel3 device check (space separated / empty = check off)'
+        required: false
+        type: string
+        default: 'PCRM00 rno rno1'
   push:
     branches: [pcrm00-resukisu]
     paths-ignore: ['**.md']
 
-permissions:
-  contents: read
+concurrency:
+  group: build-pcrm00-${{ github.ref }}
+  cancel-in-progress: true
 
-env:
-  DEFCONFIG: ${{ inputs.defconfig || 'vendor/lito-perf_defconfig' }}
+permissions:
+  contents: write
 
 jobs:
-  kernel:
+  # -------------------------------------------------------------------------
+  # setup —— 计算日期 / ReSukiSU 版本 / Release 元数据
+  # -------------------------------------------------------------------------
+  setup:
+    name: Prepare release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      build_date: ${{ steps.gen.outputs.build_date }}
+      rer_ver: ${{ steps.gen.outputs.rer_ver }}
+      tag_name: ${{ steps.gen.outputs.tag_name }}
+      release_title: ${{ steps.gen.outputs.release_title }}
+      publish: ${{ steps.gen.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+      - name: Generate metadata
+        id: gen
+        run: |
+          set -euo pipefail
+          BUILD_DATE="$(date +'%Y%m%d')"
+          # vendored ReSukiSU tag from drivers/kernelsu/Kbuild
+          REKISUKISU_TAG="$(grep -E '^KSU_TAG_NAME' drivers/kernelsu/Kbuild | awk -F':=' '{print $2}' | tr -d ' ')"
+          [ -n "$REKISUKISU_TAG" ] || REKISUKISU_TAG="v4.2.0-rc1"
+          TAG_NAME="ReSukiSU_PCRM00_${BUILD_DATE}"
+          echo "build_date=${BUILD_DATE}"              >> "$GITHUB_OUTPUT"
+          echo "rer_ver=${REKISUKISU_TAG}"             >> "$GITHUB_OUTPUT"
+          echo "tag_name=${TAG_NAME}"                  >> "$GITHUB_OUTPUT"
+          echo "release_title=OPPO Reno3 Pro 5G (PCRM00) ReSukiSU Kernel ${BUILD_DATE}" >> "$GITHUB_OUTPUT"
+          echo "publish=${{ (inputs.publish_release != false) && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"
+          echo "date=${BUILD_DATE} tag=${REKISUKISU_TAG} release=${TAG_NAME}"
+
+  # -------------------------------------------------------------------------
+  # build —— 内核编译 + AK3/boot 打包 + 上传产物
+  # -------------------------------------------------------------------------
+  build-kernel:
+    name: Build kernel & package
+    needs: setup
     runs-on: ubuntu-22.04
+    env:
+      CLANG: ${{ inputs.clang_version || '14' }}
+      STOCK_BOOT_URL: ${{ inputs.stock_boot_url || 'https://pan.xiegao.top/api/ty/raw/?path=/%E5%A4%A9%E7%BF%BC%E4%BA%91%E7%9B%98/OPPO%20Reno3%20Pro/ROM/ColorOS/boot.img' }}
+      AK3_DEVICE_NAMES: ${{ inputs.ak3_device_names || 'PCRM00 rno rno1' }}
+      BOOT_NAME: ReSukiSU_PCRM00_${{ needs.setup.outputs.rer_ver }}_${{ needs.setup.outputs.build_date }}-boot.img
+      ZIP_NAME: ReSukiSU_PCRM00_${{ needs.setup.outputs.rer_ver }}_${{ needs.setup.outputs.build_date }}.zip
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install toolchain
+      - name: 10G swap
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+
+      - name: Install toolchain & packaging deps
         run: |
           set -euo pipefail
-          CLANG="${{ inputs.clang_version || '14' }}"
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential flex bison bc libssl-dev device-tree-compiler \
-            cpio rsync xz-utils python3 curl ca-certificates \
-            binutils-aarch64-linux-gnu \
+            cpio rsync xz-utils python3 curl ca-certificates unzip \
+            libncurses-dev liblz4-tool zstd \
+            binutils-aarch64-linux-gnu ccache \
             clang-$CLANG lld-$CLANG llvm-$CLANG
           echo "/usr/lib/llvm-$CLANG/bin" >> "$GITHUB_PATH"
-          echo "CLANG=$CLANG" >> "$GITHUB_ENV"
+
+      - name: ccache cache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: pcrm00-${{ github.ref_name }}
+          max-size: 4G
 
       - name: Fetch stock PCRM00 devicetree (companion repo)
         run: |
@@ -61,29 +133,57 @@ jobs:
           grep -c '^STUB-D' build/stubs.log || true
           grep -c '^STUB-F' build/stubs.log || true
 
-      - name: Build
+      - name: Build kernel (ccache)
         run: |
           set -euo pipefail
           # TARGET_PRODUCT=qssi flips drivers/Makefile + drivers/scsi/Makefile
           # off OPPO's unreleased oufs/ommc and onto the stock QC UFS/MMC drivers.
           export TARGET_PRODUCT=qssi
+          # route `clang` through a ccache wrapper for fast warm rebuilds
+          mkdir -p "$RUNNER_TEMP/ccbin"
+          printf '#!/bin/bash\nexec ccache /usr/lib/llvm-%s/bin/clang "$@"\n' \
+            "$CLANG" > "$RUNNER_TEMP/ccbin/clang"
+          chmod +x "$RUNNER_TEMP/ccbin/clang"
+          export PATH="$RUNNER_TEMP/ccbin:$PATH"
           export CC=clang LD=ld.lld
-          # OPPO's vendor code is full of old-style `int foo()` definitions, which
-          # clang rejects under -Werror=strict-prototypes (GCC does not complain).
           export KCFLAGS="-Wno-error -Wno-error=strict-prototypes -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types -Wno-error=date-time -Wno-declaration-after-statement"
           ./pcrm00/build.sh 2>&1 | tee "$RUNNER_TEMP/build-full.log"
+          test -f out/arch/arm64/boot/Image || { echo "::error::no Image produced"; exit 1; }
+
+      - name: Fetch magiskboot + stock boot.img
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/boot.img" "${{ env.STOCK_BOOT_URL }}"
+          file "$RUNNER_TEMP/boot.img"
+          python3 pcrm00/get_magiskboot.py "$RUNNER_TEMP"
+          "$RUNNER_TEMP/magiskboot" >/dev/null 2>&1 && echo "magiskboot OK" || true
+
+      - name: Package boot.img + AnyKernel3 zip
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth 1 https://github.com/osm0sis/AnyKernel3.git "$RUNNER_TEMP/AnyKernel3"
+          mkdir -p out/release
+          NATIVE_BIN="$RUNNER_TEMP" \
+          ANYKERNEL3="$RUNNER_TEMP/AnyKernel3" \
+          REKUSISU_TAG="${{ needs.setup.outputs.rer_ver }}" \
+          AK3_DEVICE_NAMES="${{ env.AK3_DEVICE_NAMES }}" \
+          ./pcrm00/package.sh \
+            out/arch/arm64/boot/Image \
+            pcrm00/dtb.img \
+            "$RUNNER_TEMP/boot.img" \
+            out/release
+          ls -lh out/release/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: pcrm00-resukisu-${{ github.sha }}
           path: |
-            out/pcrm00/Image-dtb
+            out/release/*.zip
+            out/release/*-boot.img
             out/pcrm00/.config
-            out/arch/arm64/boot/Image
             out/build.log
-            build/stubs.log
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
 
       - name: Failure triage summary
@@ -91,6 +191,88 @@ jobs:
         run: |
           echo '### Build failed — last errors' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          grep -E "error:|Error [0-9]|No rule to make target|not found" \
+          grep -E "error:|Error [0-9]|No rule to make target|not found|Fail" \
               "$RUNNER_TEMP/build-full.log" 2>/dev/null | tail -40 >> "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  # -------------------------------------------------------------------------
+  # release —— 汇总 AK3 + boot 到同一个 Release
+  # -------------------------------------------------------------------------
+  release:
+    name: Create GitHub Release
+    needs: [setup, build-kernel]
+    if: needs.setup.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TAG_NAME: ${{ needs.setup.outputs.tag_name }}
+      RELEASE_TITLE: ${{ needs.setup.outputs.release_title }}
+      REKISUKISU_TAG: ${{ needs.setup.outputs.rer_ver }}
+      BUILD_DATE: ${{ needs.setup.outputs.build_date }}
+    steps:
+      - name: Checkout (for Changes)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Generate release body
+        run: |
+          set -euo pipefail
+          git log -12 --pretty=format:'%s (%h)' > /tmp/changes.txt
+          {
+            echo "### 下载选择"
+            echo ""
+            echo "| 格式 | 说明 | 管理器下载 |"
+            echo "|---|---|---|"
+            echo "| **boot.img** (fastboot) | 完整 boot 镜像：ReSukiSU 内核 + 原厂 ramdisk/DTB，用 fastboot 刷入 | · |"
+            echo "| **AnyKernel3 .zip** (recovery) | 通过 TWRP 等 recovery 刷入 | · |"
+            echo "| **ReSukiSU Manager APK** | 安装管理器并确认驱动 | [build-manager workflow](https://github.com/ReSukiSU/ReSukiSU/actions/workflows/build-manager.yml) |"
+            echo ""
+            echo "### 本次构建"
+            echo ""
+            echo "- **设备**: OPPO Reno3 Pro 5G (PCRM00) / SM7250 (lito) / kernel 4.19 (Non-GKI)"
+            echo "- **ReSukiSU**: ${{ env.REKISUKISU_TAG }}（内置 MANUAL_HOOK）"
+            echo "- **版本日期**: ${{ env.BUILD_DATE }}"
+            echo "- **分支**: ${{ github.ref_name }}"
+            echo ""
+            echo "### 刷入方法"
+            echo ""
+            echo "#### 方式一：boot.img（fastboot）"
+            echo ""
+            echo "1. 下载解压对应日期的 `...-boot.img`"
+            echo "2. 下载并安装 ReSukiSU Manager（见上表）"
+            echo "3. 在已解锁 BL 的设备上："
+            echo "   \`fastboot flash boot <日期>-boot.img\`"
+            echo "   \`fastboot reboot\`"
+            echo ""
+            echo "#### 方式二：AnyKernel3 zip（recovery）"
+            echo ""
+            echo "1. 下载对应日期的 \`ReSukiSU_*.zip\`"
+            echo "2. 装好 ReSukiSU Manager"
+            echo "3. 重启到 recovery（TWRP）"
+            echo "4. 刷入 zip，重启，打开 Manager 验证驱动"
+            echo ""
+            echo "> ⚠️ 刷机前请先备份当前 boot 分区，并确保有可用的 recovery/fastboot 救援通道。"
+            echo "> 本机原厂 boot 可能已被其它框架（Magisk/FolkPatch）打过补丁，请以原厂镜像为准。"
+            echo ""
+            echo "### Changes"
+            echo ""
+            cat /tmp/changes.txt
+            echo ""
+            echo ""
+            echo "> 基于 [XuexGao/android_kernel_oppo_sm7250](https://github.com/XuexGao/android_kernel_oppo_sm7250) 自动构建"
+          } > release-body.md
+          echo "---- release-body.md ----"
+          cat release-body.md
+      - name: Publish release (AK3 + boot)
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ env.TAG_NAME }}
+          name: ${{ env.RELEASE_TITLE }}
+          bodyFile: release-body.md
+          artifacts: "dist/*/*.zip,dist/*/*-boot.img"
+          allowUpdates: true
+          removeArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
