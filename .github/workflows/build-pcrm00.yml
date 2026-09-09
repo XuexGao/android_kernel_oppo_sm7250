@@ -72,7 +72,15 @@ jobs:
           echo "rer_ver=${REKISUKISU_TAG}"             >> "$GITHUB_OUTPUT"
           echo "tag_name=${TAG_NAME}"                  >> "$GITHUB_OUTPUT"
           echo "release_title=OPPO Reno3 Pro 5G (PCRM00) ReSukiSU Kernel ${BUILD_DATE}" >> "$GITHUB_OUTPUT"
-          echo "publish=${{ (inputs.publish_release != false) && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"
+          # On push events `inputs` is empty, so gate on the event type: only honour
+          # publish_release=false on workflow_dispatch; always publish on push.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PUBLISH="${{ inputs.publish_release }}"
+            [ "$PUBLISH" = "false" ] && PUBLISH=false || PUBLISH=true
+          else
+            PUBLISH=true
+          fi
+          echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"
           echo "date=${BUILD_DATE} tag=${REKISUKISU_TAG} release=${TAG_NAME}"
 
   # -------------------------------------------------------------------------
