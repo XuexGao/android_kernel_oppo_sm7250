@@ -170,3 +170,85 @@ pcrm00/
 drivers/kernelsu/       vendored ReSukisu kernel (GPL-2.0-only)
 .github/workflows/build-pcrm00.yml
 ```
+
+---
+
+## 9. Measured functional delta: built kernel vs the phone's stock kernel
+
+Compare kernel against kernel (`/home/.../pcrm00/kernel`, the 40,960,012-byte
+stock PCRM00 Image, vs the released `Image`). Do **not** compare against
+`stock_boot.img` — that also carries the ramdisk and DTB and inflates every
+count.
+
+`strings -a | grep -oiE '[a-z0-9_]*charg[a-z0-9_]*' | sort -u`:
+
+| | stock | built |
+|---|---|---|
+| distinct charger symbols | **295** | **66** |
+
+237 of them disappear, including:
+
+```
+OplusCharger                 <- OPPO's charger driver proper
+CHARGER_TYPE_VOTER           <- charger voter framework
+WEAK_CHARGER_VOTER  FORCE_RECHARGE_VOTER  WLS_PL_CHARGING_VOTER
+CHARGEPUMP_DETECT_CNT  WPC_CHG_STATUS_CHARGER_FASTCHG_INIT
+CHGR_FAST_CHARGE_SAFETY_TIMER_CFG_REG  TCCC_CHARGE_CURRENT_TERMINATION_CFG_REG
+charging_limit_current_write  charging_limit_time_write   <- battery-health limits
+MSM_BOOT_MODE__CHARGE         <- off-mode / charge-only boot mode
+ADC_RECHARGE_THRESHOLD  BATTERY_CHARGER_STATUS_*_REG
+```
+
+`oplus_batt` 4 -> 0, `wireless_charg` 7 -> 0.
+
+**Consequence: this is not a daily-driver kernel.** Charging and battery
+reporting depend on `vendor/oplus/kernel/charger`, which OPPO never released.
+`CONFIG_OPLUS_SM7250R_CHARGER=y` still appears in the final `.config` — its
+Kconfig lives in the surviving `drivers/power/Kconfig`, only the implementation
+is gone — so a config diff alone will tell you nothing here. The string census
+above is the honest measurement.
+
+### Touch is a coin-flip on your panel batch
+
+`syna-tcm` 242 -> 0 and `sec-s6sy771` 167 -> 0, but neither string exists
+anywhere in this source tree: both come from OPPO's missing
+`drivers/input/touchscreen/oplus_touchscreen` wrapper.
+
+The standalone Synaptics driver *is* in the tree and *is* built
+(`synaptics,tcm-i2c` present; `CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_*` resolved via
+`pcrm00/kconfig/shim/Kconfig`). Reno3 Pro shipped with two touch controllers —
+the stock `dtbo` carries both `s6sy771_19101@48` and `synaptics19101@4B`,
+selected by `androidboot.dtbo_idx`. If your unit is the Synaptics panel you get
+touch; if it is the Samsung S6SY771 one, that driver is inside the deleted
+wrapper and **the screen will not respond**.
+
+### `arch/arm64/kernel/syscall.c` — secure-guard bypass
+
+Originally:
+
+```c
+#ifdef CONFIG_OPLUS_SECURE_GUARD
+        oplus_invoke_syscall(regs, scno, sc_nr, syscall_table);
+#else
+        invoke_syscall(regs, scno, sc_nr, syscall_table);
+#endif
+```
+
+Now unconditionally `invoke_syscall()`. `CONFIG_OPLUS_SECURE_GUARD` **is** set on
+stock, so every syscall on the device normally passes OPPO's secure-guard
+dispatcher — an anti-root mechanism (ReSukisu's own `ksuinit` blocks
+`oplus_secure_guard`/`oplus_secure_guard_new`/`mkp` by default). Its source is
+in the unreleased `drivers/input/oplus_secure_drivers`, so bypassing it is the
+only option; it is also, incidentally, what makes the manual hook able to work.
+
+Worth knowing rather than pretending it is free: it removes a vendor security
+layer from the syscall path for the whole device, and userspace features that
+leaned on it (secure payment input, `mkp`) may behave differently.
+
+### `get_boot_mode()` is shimmed
+
+`kernel/oplus_pcrm00_shim.c` returns conservative defaults for OPPO helpers
+(`get_boot_mode`, `get_project`, `is_critial_process`, the `sched_assist_*`
+family) so in-tree callers link. `MSM_BOOT_MODE__CHARGE` vanishing plus
+`get_boot_mode()` being stubbed means off-mode charging and recovery-reason
+detection are not the real thing.

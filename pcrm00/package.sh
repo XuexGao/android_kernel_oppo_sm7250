@@ -101,6 +101,16 @@ for n in $AK3_DEVICE_NAMES; do
 done
 DO_DEVICE_CHECK=$([ -n "$AK3_DEVICE_NAMES" ] && echo 1 || echo 0)
 
+# The stock boot image this package is built on is a dump of ONE firmware:
+# ColorOS 11.1 / Android 11 (image_version 10:RKQ1.200903.002:1640347520724).
+# We keep that dump's ramdisk, so the result is only coherent on Android 11.
+# With supported.versions left empty, AK3 would flash this onto a PCRM00 that
+# has since moved to ColorOS 12 without a word of warning - mismatched ramdisk
+# against vendor, most likely an unbootable device. Device.name alone does not
+# help: it matches the model, not the OS.
+# Override with AK3_SUPPORTED_VERSIONS='' to drop the guard on purpose.
+VERSION_LINES="supported.versions=${AK3_SUPPORTED_VERSIONS-11}"
+
 cat > "$BOOTDIR/ak3/anykernel.sh" <<EOF
 ### AnyKernel3 Ramdisk Mod Script
 ## osm0sis @ xda-developers
@@ -114,7 +124,7 @@ do.systemless=1
 do.dtb=1
 do.cleanup=1
 do.cleanuponabort=0${DEVICE_LINES}
-supported.versions=
+${VERSION_LINES}
 supported.patchlevels=
 supported.vendorpatchlevels=
 '; } # end properties
