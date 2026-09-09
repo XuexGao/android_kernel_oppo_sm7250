@@ -307,7 +307,7 @@ jobs:
           tag: ${{ env.TAG_NAME }}
           name: ${{ env.RELEASE_TITLE }}
           bodyFile: release-body.md
-          artifacts: "dist/*/out/release/*.zip,dist/*/out/release/*-boot.img"
+          artifacts: "dist/*/release/*.zip,dist/*/release/*-boot.img"
           allowUpdates: true
           removeArtifacts: true
           token: ${{ secrets.GITHUB_TOKEN }}
