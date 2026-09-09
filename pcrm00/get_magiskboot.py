@@ -12,13 +12,13 @@
 import os
 import subprocess
 import sys
-import tempfile
 import urllib.request
 
-API = "https://api.github.com/repos/topjohnwu/Magisk/releases/latest"
-
-# Direct download fallback (no API call, so no rate limit) if the API query fails.
-FALLBACK_APK = "https://github.com/topjohnwu/Magisk/releases/download/v30.7/Magisk-v30.7.apk"
+# NOTE: pin to Magisk v27.0, NOT the latest release. Newer Magisk compiles the
+# x86_64 magiskboot with AVX512 instructions, which SIGILL (Illegal instruction,
+# exit 132) on GitHub Actions runners that lack AVX512 — observed during
+# `magiskboot repack`. v27.0's x86_64 magiskboot runs cleanly on the runner.
+MAGISK_APK = "https://github.com/topjohnwu/Magisk/releases/download/v27.0/Magisk-v27.0.apk"
 
 
 def gh_json(url, token=None):
@@ -32,20 +32,8 @@ def gh_json(url, token=None):
 def main():
     out_dir = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.getcwd())
     token = os.environ.get("GITHUB_TOKEN", "")
-    import json
-
-    apk_url = FALLBACK_APK
-    tag_name = "v30.7"
-    try:
-        rel = json.loads(gh_json(API, token))
-        tag_name = rel.get("tag_name", tag_name)
-        for a in rel.get("assets", []):
-            name = a.get("name", "")
-            if name.endswith(".apk") and "app-debug" not in name:
-                apk_url = a["browser_download_url"]
-                break
-    except Exception as exc:  # noqa: BLE001 - fall back to a pinned release
-        print(f"[i] GitHub API unavailable ({exc}); using pinned Magisk {tag_name}")
+    apk_url = MAGISK_APK
+    tag_name = apk_url.rsplit("/", 1)[-1].removesuffix(".apk")
 
     apk_path = os.path.join(out_dir, "magisk.apk")
     print(f"Fetching {tag_name} -> {apk_path}")
