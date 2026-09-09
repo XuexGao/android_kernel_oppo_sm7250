@@ -276,7 +276,7 @@ jobs:
             echo ""
             echo "#### 方式一：boot.img（fastboot）"
             echo ""
-            echo "1. 下载解压对应日期的 `...-boot.img`"
+            echo "1. 下载解压对应日期的 \`...-boot.img\`"
             echo "2. 下载并安装 ReSukiSU Manager（见上表）"
             echo "3. 在已解锁 BL 的设备上："
             echo "   \`fastboot flash boot <日期>-boot.img\`"
@@ -307,7 +307,7 @@ jobs:
           tag: ${{ env.TAG_NAME }}
           name: ${{ env.RELEASE_TITLE }}
           bodyFile: release-body.md
-          artifacts: "dist/*/*.zip,dist/*/*-boot.img"
+          artifacts: "dist/*/out/release/*.zip,dist/*/out/release/*-boot.img"
           allowUpdates: true
           removeArtifacts: true
           token: ${{ secrets.GITHUB_TOKEN }}
